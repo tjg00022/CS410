@@ -94,7 +94,7 @@ public class StateTable {
     };
 
     //Converts an actual character into an input-column number
-    public static int inputType(char character) {
+    public static int getCharacterType(char character) {
         if (Character.isLetter(character)) return LETTER;
         if (Character.isDigit(character)) return DIGIT;
         if (Character.isWhitespace(character)) return WHITESPACE;

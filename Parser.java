@@ -3,47 +3,47 @@ import java.util.List;
 
 //Recursive descent parser for our dialect.
 //There is one method for each nonterminal in our grammar (see the Phase 2 grammar
-//and the abstract machine drawing). Each method checks the current token (inp)
+//and the abstract machine drawing). Each method checks the current terminal
 //against the selection sets to pick a production, and also builds the atoms.
 public class Parser {
 
     //Used for the end of the input (the "↵" in our grammar)
     private static final String END = "END";
 
-    private final List<Token> tokens;
-    private int position = 0;
-    private String inp;
+    private final List<Token> tokenList;
+    private int currentTokenIndex = 0;
+    private String currentTerminal;
 
     //The atoms we have made so far
-    private List<Atom> atoms = new ArrayList<>();
+    private List<Atom> atomList = new ArrayList<>();
 
     //Counters for making new temporary variables (T1, T2, ...) and labels (L1, L2, ...)
-    private int tempCount = 0;
+    private int temporaryCount = 0;
     private int labelCount = 0;
 
-    public Parser(List<Token> tokens)
+    public Parser(List<Token> inputTokens)
     {
-        this.tokens = tokens;
+        this.tokenList = inputTokens;
     }
 
     //main() from the abstract machine
     public List<Atom> parse()
     {
-        getInp();
+        getNextToken();
         program();
 
         //Every token has to be used up for the program to be accepted
-        if (!inp.equals(END))
+        if (!currentTerminal.equals(END))
         {
             reject("end of input");
         }
-        return atoms;
+        return atomList;
     }
 
     // ---------------- machine helpers ----------------
 
     //Turns a token from the scanner into the terminal name used in our grammar
-    private String terminal(Token token)
+    private String getTerminal(Token token)
     {
         switch (token.getType())
         {
@@ -55,25 +55,25 @@ public class Parser {
     }
 
     //Moves to the next token
-    private void getInp()
+    private void getNextToken()
     {
-        if (position < tokens.size())
+        if (currentTokenIndex < tokenList.size())
         {
-            inp = terminal(tokens.get(position));
+            currentTerminal = getTerminal(tokenList.get(currentTokenIndex));
         }
         else
         {
-            inp = END;
+            currentTerminal = END;
         }
-        position++;
+        currentTokenIndex++;
     }
 
     //The text of the current token (like "x" or "5" instead of "identifier")
-    private String currentValue()
+    private String getCurrentValue()
     {
-        if (position - 1 < tokens.size())
+        if (currentTokenIndex - 1 < tokenList.size())
         {
-            return tokens.get(position - 1).getValue();
+            return tokenList.get(currentTokenIndex - 1).getValue();
         }
         return END;
     }
@@ -81,9 +81,9 @@ public class Parser {
     //Checks that the current token is the one we expect and moves on
     private void match(String expected)
     {
-        if (inp.equals(expected))
+        if (currentTerminal.equals(expected))
         {
-            getInp();
+            getNextToken();
         }
         else
         {
@@ -94,16 +94,16 @@ public class Parser {
     //Stops the parser when a token is not allowed here
     private void reject(String expected)
     {
-        throw new ParseException("Reject: expected " + expected + " but found '" + currentValue()
-                + "' (token " + position + ")");
+        throw new RuntimeException("Reject: expected " + expected + " but found '" + getCurrentValue()
+                + "' (token " + currentTokenIndex + ")");
     }
 
     //Checks if the current token is one of the tokens in a selection set
-    private boolean inpIn(String... set)
+    private boolean isOneOf(String... selectionSet)
     {
-        for (String token : set)
+        for (String selectionToken : selectionSet)
         {
-            if (inp.equals(token))
+            if (currentTerminal.equals(selectionToken))
             {
                 return true;
             }
@@ -111,21 +111,21 @@ public class Parser {
         return false;
     }
 
-    private String newTemp()
+    private String createTemporaryName()
     {
-        tempCount++;
-        return "T" + tempCount;
+        temporaryCount++;
+        return "T" + temporaryCount;
     }
 
-    private String newLabel()
+    private String createLabelName()
     {
         labelCount++;
         return "L" + labelCount;
     }
 
-    private void emit(Atom atom)
+    private void addAtom(Atom atom)
     {
-        atoms.add(atom);
+        atomList.add(atom);
     }
 
     // ---------------- statements ----------------
@@ -140,12 +140,12 @@ public class Parser {
     //3  StmtList -> ε
     private void stmtList()
     {
-        if (inpIn("int", "float", "identifier", "if", "while", "for", "{"))
+        if (isOneOf("int", "float", "identifier", "if", "while", "for", "{"))
         {
             stmt();
             stmtList();
         }
-        else if (inpIn("}", END))
+        else if (isOneOf("}", END))
         {
             return;
         }
@@ -158,28 +158,28 @@ public class Parser {
     //4-9  Stmt -> Declaration | Assignment ; | IfStmt | WhileStmt | ForStmt | Block
     private void stmt()
     {
-        if (inpIn("int", "float"))
+        if (isOneOf("int", "float"))
         {
             declaration();
         }
-        else if (inp.equals("identifier"))
+        else if (currentTerminal.equals("identifier"))
         {
             assignment();
             match(";");
         }
-        else if (inp.equals("if"))
+        else if (currentTerminal.equals("if"))
         {
             ifStmt();
         }
-        else if (inp.equals("while"))
+        else if (currentTerminal.equals("while"))
         {
             whileStmt();
         }
-        else if (inp.equals("for"))
+        else if (currentTerminal.equals("for"))
         {
             forStmt();
         }
-        else if (inp.equals("{"))
+        else if (currentTerminal.equals("{"))
         {
             block();
         }
@@ -193,23 +193,23 @@ public class Parser {
     private void declaration()
     {
         type();
-        String name = currentValue();
+        String variableName = getCurrentValue();
         match("identifier");
-        init(name);
+        init(variableName);
         match(";");
     }
 
     //11  Init -> = Expr        atom: (MOV, value, , name)
     //12  Init -> ε             no atom, the variable just gets declared
-    private void init(String name)
+    private void init(String variableName)
     {
-        if (inp.equals("="))
+        if (currentTerminal.equals("="))
         {
-            getInp();
-            String value = expr();
-            emit(Atom.move(value, name));
+            getNextToken();
+            String expressionValue = expr();
+            addAtom(Atom.move(expressionValue, variableName));
         }
-        else if (inp.equals(";"))
+        else if (currentTerminal.equals(";"))
         {
             return;
         }
@@ -223,9 +223,9 @@ public class Parser {
     //14  Type -> float
     private void type()
     {
-        if (inpIn("int", "float"))
+        if (isOneOf("int", "float"))
         {
-            getInp();
+            getNextToken();
         }
         else
         {
@@ -236,11 +236,11 @@ public class Parser {
     //15  Assignment -> identifier = Expr        atom: (MOV, value, , name)
     private void assignment()
     {
-        String name = currentValue();
+        String variableName = getCurrentValue();
         match("identifier");
         match("=");
-        String value = expr();
-        emit(Atom.move(value, name));
+        String expressionValue = expr();
+        addAtom(Atom.move(expressionValue, variableName));
     }
 
     // ---------------- control flow ----------------
@@ -255,7 +255,7 @@ public class Parser {
     //    LBL Lend                                 only if there is an else
     private void ifStmt()
     {
-        String falseLabel = newLabel();
+        String falseLabel = createLabelName();
 
         match("if");
         match("(");
@@ -269,20 +269,20 @@ public class Parser {
     //18  ElsePart -> ε
     private void elsePart(String falseLabel)
     {
-        if (inp.equals("else"))
+        if (currentTerminal.equals("else"))
         {
-            String endLabel = newLabel();
-            emit(Atom.jump(endLabel));
-            emit(Atom.label(falseLabel));
+            String endLabel = createLabelName();
+            addAtom(Atom.jump(endLabel));
+            addAtom(Atom.label(falseLabel));
 
-            getInp();
+            getNextToken();
             elseBody();
 
-            emit(Atom.label(endLabel));
+            addAtom(Atom.label(endLabel));
         }
-        else if (inpIn("int", "float", "identifier", "if", "while", "for", "{", "}", END))
+        else if (isOneOf("int", "float", "identifier", "if", "while", "for", "{", "}", END))
         {
-            emit(Atom.label(falseLabel));
+            addAtom(Atom.label(falseLabel));
         }
         else
         {
@@ -294,11 +294,11 @@ public class Parser {
     //20  ElseBody -> IfStmt         (this is how else if works)
     private void elseBody()
     {
-        if (inp.equals("{"))
+        if (currentTerminal.equals("{"))
         {
             block();
         }
-        else if (inp.equals("if"))
+        else if (currentTerminal.equals("if"))
         {
             ifStmt();
         }
@@ -317,17 +317,17 @@ public class Parser {
     //    LBL Lend
     private void whileStmt()
     {
-        String topLabel = newLabel();
-        String endLabel = newLabel();
+        String topLabel = createLabelName();
+        String endLabel = createLabelName();
 
         match("while");
-        emit(Atom.label(topLabel));
+        addAtom(Atom.label(topLabel));
         match("(");
         condition(endLabel);
         match(")");
         block();
-        emit(Atom.jump(topLabel));
-        emit(Atom.label(endLabel));
+        addAtom(Atom.jump(topLabel));
+        addAtom(Atom.label(endLabel));
     }
 
     //22  ForStmt -> for ( Assignment ; Condition ; Assignment ) Block
@@ -341,29 +341,29 @@ public class Parser {
     //    LBL Lend
     private void forStmt()
     {
-        String topLabel = newLabel();
-        String endLabel = newLabel();
+        String topLabel = createLabelName();
+        String endLabel = createLabelName();
 
         match("for");
         match("(");
         assignment();
         match(";");
-        emit(Atom.label(topLabel));
+        addAtom(Atom.label(topLabel));
         condition(endLabel);
         match(";");
 
         //Save the atoms for the update part in a separate list so they can go after the block
-        List<Atom> saved = atoms;
-        atoms = new ArrayList<>();
+        List<Atom> savedAtoms = atomList;
+        atomList = new ArrayList<>();
         assignment();
-        List<Atom> updateAtoms = atoms;
-        atoms = saved;
+        List<Atom> updateAtoms = atomList;
+        atomList = savedAtoms;
 
         match(")");
         block();
-        atoms.addAll(updateAtoms);
-        emit(Atom.jump(topLabel));
-        emit(Atom.label(endLabel));
+        atomList.addAll(updateAtoms);
+        addAtom(Atom.jump(topLabel));
+        addAtom(Atom.label(endLabel));
     }
 
     //23  Block -> { StmtList }
@@ -380,19 +380,19 @@ public class Parser {
     //    Jumps to falseLabel when the condition is false, so the TST uses the opposite comparison
     private void condition(String falseLabel)
     {
-        String left = expr();
+        String leftValue = expr();
         int comparison = compare();
-        String right = expr();
-        emit(Atom.test(left, right, Atom.opposite(comparison), falseLabel));
+        String rightValue = expr();
+        addAtom(Atom.test(leftValue, rightValue, Atom.getOppositeComparison(comparison), falseLabel));
     }
 
     //25-30  Compare -> == | != | < | > | <= | >=
     private int compare()
     {
-        if (inpIn("==", "!=", "<", ">", "<=", ">="))
+        if (isOneOf("==", "!=", "<", ">", "<=", ">="))
         {
-            int comparison = Atom.comparisonCode(inp);
-            getInp();
+            int comparison = Atom.getComparisonCode(currentTerminal);
+            getNextToken();
             return comparison;
         }
         reject("a comparison");
@@ -405,60 +405,60 @@ public class Parser {
     //31  Expr -> Term ExprTail
     private String expr()
     {
-        String left = term();
-        return exprTail(left);
+        String firstTermValue = term();
+        return exprTail(firstTermValue);
     }
 
     //32  ExprTail -> + Term ExprTail        atom: (ADD, left, right, T)
     //33  ExprTail -> - Term ExprTail        atom: (SUB, left, right, T)
     //34  ExprTail -> ε
     //The left side gets passed in so 1 - 2 - 3 is done as (1 - 2) - 3
-    private String exprTail(String left)
+    private String exprTail(String leftValue)
     {
-        if (inpIn("+", "-"))
+        if (isOneOf("+", "-"))
         {
-            String operation = inp.equals("+") ? "ADD" : "SUB";
-            getInp();
-            String right = term();
-            String result = newTemp();
-            emit(Atom.arithmetic(operation, left, right, result));
-            return exprTail(result);
+            String operationName = currentTerminal.equals("+") ? "ADD" : "SUB";
+            getNextToken();
+            String rightValue = term();
+            String resultName = createTemporaryName();
+            addAtom(Atom.arithmetic(operationName, leftValue, rightValue, resultName));
+            return exprTail(resultName);
         }
-        else if (inpIn("==", "!=", "<", ">", "<=", ">=", ")", ";"))
+        else if (isOneOf("==", "!=", "<", ">", "<=", ">=", ")", ";"))
         {
-            return left;
+            return leftValue;
         }
         reject("an operator, ) or ;");
-        return left;
+        return leftValue;
     }
 
     //35  Term -> Factor TermTail
     private String term()
     {
-        String left = factor();
-        return termTail(left);
+        String firstFactorValue = factor();
+        return termTail(firstFactorValue);
     }
 
     //36  TermTail -> * Factor TermTail      atom: (MUL, left, right, T)
     //37  TermTail -> / Factor TermTail      atom: (DIV, left, right, T)
     //38  TermTail -> ε
-    private String termTail(String left)
+    private String termTail(String leftValue)
     {
-        if (inpIn("*", "/"))
+        if (isOneOf("*", "/"))
         {
-            String operation = inp.equals("*") ? "MUL" : "DIV";
-            getInp();
-            String right = factor();
-            String result = newTemp();
-            emit(Atom.arithmetic(operation, left, right, result));
-            return termTail(result);
+            String operationName = currentTerminal.equals("*") ? "MUL" : "DIV";
+            getNextToken();
+            String rightValue = factor();
+            String resultName = createTemporaryName();
+            addAtom(Atom.arithmetic(operationName, leftValue, rightValue, resultName));
+            return termTail(resultName);
         }
-        else if (inpIn("==", "!=", "<", ">", "<=", ">=", "+", "-", ")", ";"))
+        else if (isOneOf("==", "!=", "<", ">", "<=", ">=", "+", "-", ")", ";"))
         {
-            return left;
+            return leftValue;
         }
         reject("an operator, ) or ;");
-        return left;
+        return leftValue;
     }
 
     //39  Factor -> ( Expr )
@@ -466,26 +466,26 @@ public class Parser {
     //41-43  Factor -> identifier | intliteral | floatliteral
     private String factor()
     {
-        if (inp.equals("("))
+        if (currentTerminal.equals("("))
         {
-            getInp();
-            String value = expr();
+            getNextToken();
+            String expressionValue = expr();
             match(")");
-            return value;
+            return expressionValue;
         }
-        else if (inp.equals("-"))
+        else if (currentTerminal.equals("-"))
         {
-            getInp();
-            String value = factor();
-            String result = newTemp();
-            emit(Atom.negate(value, result));
-            return result;
+            getNextToken();
+            String factorValue = factor();
+            String resultName = createTemporaryName();
+            addAtom(Atom.negate(factorValue, resultName));
+            return resultName;
         }
-        else if (inpIn("identifier", "intliteral", "floatliteral"))
+        else if (isOneOf("identifier", "intliteral", "floatliteral"))
         {
-            String value = currentValue();
-            getInp();
-            return value;
+            String tokenValue = getCurrentValue();
+            getNextToken();
+            return tokenValue;
         }
         reject("a number, variable, - or (");
         return "";

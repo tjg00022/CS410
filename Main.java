@@ -9,23 +9,23 @@ public class Main {
     //Input defaults to text.txt. Atoms always print to the screen,
     //and also get written to the output file if one is given.
     public static void main(String[] args) throws Exception {
-        String inputFile = args.length > 0 ? args[0] : "text.txt";
+        String inputFileName = args.length > 0 ? args[0] : "text.txt";
 
         //Read source code from a plaintext file
-        String sourceCode = Files.readString(Path.of(inputFile));
+        String sourceCode = Files.readString(Path.of(inputFileName));
 
         //Phase 1: turn the source code into tokens
         Scanner scanner = new Scanner();
-        List<Token> tokens = scanner.scan(sourceCode);
+        List<Token> tokenList = scanner.scan(sourceCode);
 
         //Phase 2: parse the tokens and turn them into atoms
-        Parser parser = new Parser(tokens);
-        List<Atom> atoms;
+        Parser parser = new Parser(tokenList);
+        List<Atom> atomList;
         try
         {
-            atoms = parser.parse();
+            atomList = parser.parse();
         }
-        catch (ParseException e)
+        catch (RuntimeException e)
         {
             System.out.println(e.getMessage());
             return;
@@ -33,7 +33,7 @@ public class Main {
 
         //Print the atoms one per line
         List<String> lines = new ArrayList<>();
-        for (Atom atom : atoms)
+        for (Atom atom : atomList)
         {
             System.out.println(atom);
             lines.add(atom.toString());

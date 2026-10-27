@@ -4,33 +4,33 @@ import java.util.List;
 public class Scanner {
 
     //Scan the input and return the tokens that were found
-    public List<Token> scan(String input)
+    public List<Token> scan(String sourceText)
     {
         //Store the tokens and track the current character
-        List<Token> tokens = new ArrayList<>();
-        int position = 0;
+        List<Token> tokenList = new ArrayList<>();
+        int characterIndex = 0;
 
         //Continue until every character has been checked
-        while (position < input.length())
+        while (characterIndex < sourceText.length())
         {
-            char current = input.charAt(position);
+            char currentCharacter = sourceText.charAt(characterIndex);
 
             //Ignore spaces, tabs, and newlines
-            if (Character.isWhitespace(current))
+            if (Character.isWhitespace(currentCharacter))
             {
-                position++;
+                characterIndex++;
                 continue;
             }
 
             //Start building one token with the state table
             int state = StateTable.START;
-            StringBuilder value = new StringBuilder();
+            StringBuilder tokenText = new StringBuilder();
 
             //Follow state transitions until the token ends
-            while (position < input.length())
+            while (characterIndex < sourceText.length())
             {
-                int inputNumber = StateTable.inputType(input.charAt(position));
-                int nextState = StateTable.transitions[state][inputNumber];
+                int characterType = StateTable.getCharacterType(sourceText.charAt(characterIndex));
+                int nextState = StateTable.transitions[state][characterType];
 
                 //A missing transition means the token is finished
                 if (nextState == StateTable.ERROR)
@@ -39,31 +39,31 @@ public class Scanner {
                 }
 
                 //Save the character and move to the next state
-                value.append(input.charAt(position));
+                tokenText.append(sourceText.charAt(characterIndex));
                 state = nextState;
-                position++;
+                characterIndex++;
             }
 
             //Report a character that could not start a token
-            if (value.length() == 0)
+            if (tokenText.length() == 0)
             {
-                System.out.println("Unexpected token: " + input.charAt(position));
-                position++;
+                System.out.println("Unexpected token: " + sourceText.charAt(characterIndex));
+                characterIndex++;
                 continue;
             }
 
             //Save complete tokens and report incomplete tokens
             if (StateTable.accepting[state])
             {
-                String text = value.toString();
-                tokens.add(new Token(getTokenType(state, text), text));
+                String text = tokenText.toString();
+                tokenList.add(new Token(getTokenType(state, text), text));
             } 
             else 
             {
-                System.out.println("Unexpected token: " + value);
+                System.out.println("Unexpected token: " + tokenText);
             }
         }
-        return tokens;
+        return tokenList;
     }
 
     // Convert a final state into a token type name
