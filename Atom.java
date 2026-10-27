@@ -58,8 +58,10 @@ public class Atom {
     }
 
     //Atom for TST
-    public static Atom test(String leftOperand, String rightOperand, int comparisonNumber,
-                            String destinationLabel)
+    public static Atom test(String leftOperand, 
+        String rightOperand, 
+        int comparisonNumber,     
+        String destinationLabel)
     {
         return new Atom("TST", leftOperand, rightOperand, "", String.valueOf(comparisonNumber), destinationLabel);
     }
