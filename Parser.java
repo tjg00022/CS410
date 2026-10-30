@@ -3,7 +3,7 @@ import java.util.List;
 
 //Recursive descent parser for our dialect.
 //There is one method for each nonterminal in our grammar (see the Phase 2 grammar
-//and the abstract machine drawing). Each method checks the current token (inp)
+//and the abstract machine drawing). Each method checks the current token (input)
 //against the selection sets to pick a production, and also builds the atoms.
 public class Parser {
 
@@ -12,7 +12,7 @@ public class Parser {
 
     private final List<Token> tokens;
     private int position = 0;
-    private String inp;
+    private String input;
 
     //The atoms we have made so far
     private List<Atom> atoms = new ArrayList<>();
@@ -29,11 +29,11 @@ public class Parser {
     //main() from the abstract machine
     public List<Atom> parse()
     {
-        getInp();
+        getInput();
         program();
 
         //Every token has to be used up for the program to be accepted
-        if (!inp.equals(END))
+        if (!input.equals(END))
         {
             reject("end of input");
         }
@@ -55,15 +55,15 @@ public class Parser {
     }
 
     //Moves to the next token
-    private void getInp()
+    private void getInput()
     {
         if (position < tokens.size())
         {
-            inp = terminal(tokens.get(position));
+            input = terminal(tokens.get(position));
         }
         else
         {
-            inp = END;
+            input = END;
         }
         position++;
     }
@@ -81,9 +81,9 @@ public class Parser {
     //Checks that the current token is the one we expect and moves on
     private void match(String expected)
     {
-        if (inp.equals(expected))
+        if (input.equals(expected))
         {
-            getInp();
+            getInput();
         }
         else
         {
@@ -94,16 +94,16 @@ public class Parser {
     //Stops the parser when a token is not allowed here
     private void reject(String expected)
     {
-        throw new ParseException("Reject: expected " + expected + " but found '" + currentValue()
+        throw new RuntimeException("Reject: expected " + expected + " but found '" + currentValue()
                 + "' (token " + position + ")");
     }
 
     //Checks if the current token is one of the tokens in a selection set
-    private boolean inpIn(String... set)
+    private boolean inputIn(String[] set)
     {
         for (String token : set)
         {
-            if (inp.equals(token))
+            if (input.equals(token))
             {
                 return true;
             }
@@ -140,12 +140,12 @@ public class Parser {
     //3  StmtList -> ε
     private void stmtList()
     {
-        if (inpIn("int", "float", "identifier", "if", "while", "for", "{"))
+        if (inputIn(new String[]{"int", "float", "identifier", "if", "while", "for", "{"}))
         {
             stmt();
             stmtList();
         }
-        else if (inpIn("}", END))
+        else if (inputIn(new String[]{"}", END}))
         {
             return;
         }
@@ -158,28 +158,28 @@ public class Parser {
     //4-9  Stmt -> Declaration | Assignment ; | IfStmt | WhileStmt | ForStmt | Block
     private void stmt()
     {
-        if (inpIn("int", "float"))
+        if (inputIn(new String[]{"int", "float"}))
         {
             declaration();
         }
-        else if (inp.equals("identifier"))
+        else if (input.equals("identifier"))
         {
             assignment();
             match(";");
         }
-        else if (inp.equals("if"))
+        else if (input.equals("if"))
         {
             ifStmt();
         }
-        else if (inp.equals("while"))
+        else if (input.equals("while"))
         {
             whileStmt();
         }
-        else if (inp.equals("for"))
+        else if (input.equals("for"))
         {
             forStmt();
         }
-        else if (inp.equals("{"))
+        else if (input.equals("{"))
         {
             block();
         }
@@ -203,13 +203,13 @@ public class Parser {
     //12  Init -> ε             no atom, the variable just gets declared
     private void init(String name)
     {
-        if (inp.equals("="))
+        if (input.equals("="))
         {
-            getInp();
+            getInput();
             String value = expr();
             emit(Atom.move(value, name));
         }
-        else if (inp.equals(";"))
+        else if (input.equals(";"))
         {
             return;
         }
@@ -223,9 +223,9 @@ public class Parser {
     //14  Type -> float
     private void type()
     {
-        if (inpIn("int", "float"))
+        if (inputIn(new String[]{"int", "float"}))
         {
-            getInp();
+            getInput();
         }
         else
         {
@@ -269,18 +269,18 @@ public class Parser {
     //18  ElsePart -> ε
     private void elsePart(String falseLabel)
     {
-        if (inp.equals("else"))
+        if (input.equals("else"))
         {
             String endLabel = newLabel();
             emit(Atom.jump(endLabel));
             emit(Atom.label(falseLabel));
 
-            getInp();
+            getInput();
             elseBody();
 
             emit(Atom.label(endLabel));
         }
-        else if (inpIn("int", "float", "identifier", "if", "while", "for", "{", "}", END))
+        else if (inputIn(new String[]{"int", "float", "identifier", "if", "while", "for", "{", "}", END}))
         {
             emit(Atom.label(falseLabel));
         }
@@ -294,11 +294,11 @@ public class Parser {
     //20  ElseBody -> IfStmt         (this is how else if works)
     private void elseBody()
     {
-        if (inp.equals("{"))
+        if (input.equals("{"))
         {
             block();
         }
-        else if (inp.equals("if"))
+        else if (input.equals("if"))
         {
             ifStmt();
         }
@@ -389,10 +389,10 @@ public class Parser {
     //25-30  Compare -> == | != | < | > | <= | >=
     private int compare()
     {
-        if (inpIn("==", "!=", "<", ">", "<=", ">="))
+        if (inputIn(new String[]{"==", "!=", "<", ">", "<=", ">="}))
         {
-            int comparison = Atom.comparisonCode(inp);
-            getInp();
+            int comparison = Atom.comparisonCode(input);
+            getInput();
             return comparison;
         }
         reject("a comparison");
@@ -415,16 +415,16 @@ public class Parser {
     //The left side gets passed in so 1 - 2 - 3 is done as (1 - 2) - 3
     private String exprTail(String left)
     {
-        if (inpIn("+", "-"))
+        if (inputIn(new String[]{"+", "-"}))
         {
-            String operation = inp.equals("+") ? "ADD" : "SUB";
-            getInp();
+            String operation = input.equals("+") ? "ADD" : "SUB";
+            getInput();
             String right = term();
             String result = newTemp();
             emit(Atom.arithmetic(operation, left, right, result));
             return exprTail(result);
         }
-        else if (inpIn("==", "!=", "<", ">", "<=", ">=", ")", ";"))
+        else if (inputIn(new String[]{"==", "!=", "<", ">", "<=", ">=", ")", ";"}))
         {
             return left;
         }
@@ -444,16 +444,16 @@ public class Parser {
     //38  TermTail -> ε
     private String termTail(String left)
     {
-        if (inpIn("*", "/"))
+        if (inputIn(new String[]{"*", "/"}))
         {
-            String operation = inp.equals("*") ? "MUL" : "DIV";
-            getInp();
+            String operation = input.equals("*") ? "MUL" : "DIV";
+            getInput();
             String right = factor();
             String result = newTemp();
             emit(Atom.arithmetic(operation, left, right, result));
             return termTail(result);
         }
-        else if (inpIn("==", "!=", "<", ">", "<=", ">=", "+", "-", ")", ";"))
+        else if (inputIn(new String[]{"==", "!=", "<", ">", "<=", ">=", "+", "-", ")", ";"}))
         {
             return left;
         }
@@ -466,25 +466,25 @@ public class Parser {
     //41-43  Factor -> identifier | intliteral | floatliteral
     private String factor()
     {
-        if (inp.equals("("))
+        if (input.equals("("))
         {
-            getInp();
+            getInput();
             String value = expr();
             match(")");
             return value;
         }
-        else if (inp.equals("-"))
+        else if (input.equals("-"))
         {
-            getInp();
+            getInput();
             String value = factor();
             String result = newTemp();
             emit(Atom.negate(value, result));
             return result;
         }
-        else if (inpIn("identifier", "intliteral", "floatliteral"))
+        else if (inputIn(new String[]{"identifier", "intliteral", "floatliteral"}))
         {
             String value = currentValue();
-            getInp();
+            getInput();
             return value;
         }
         reject("a number, variable, - or (");
