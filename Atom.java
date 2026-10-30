@@ -84,12 +84,24 @@ public class Atom {
         return 7 - comparison;
     }
 
-    public String getOperation() { return operation; }
-    public String getLeft() { return left; }
-    public String getRight() { return right; }
-    public String getResult() { return result; }
-    public String getComparison() { return comparison; }
-    public String getDestination() { return destination; }
+    public String getOperation() {
+        return operation; 
+    }
+    public String getLeft() {
+        return left; 
+        }
+    public String getRight() {
+        return right;
+    }
+    public String getResult() {
+        return result;
+    }
+    public String getComparison() {
+        return comparison;
+    }
+    public String getDestination() {
+        return destination;
+    }
 
     //Prints the atom like (ADD, a, b, T1) and leaves off empty spots at the end
     @Override

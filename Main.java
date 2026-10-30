@@ -9,12 +9,13 @@ public class Main {
         String sourceCode = Files.readString(Path.of("text.txt"));
 
         Scanner scanner = new Scanner();
-
         List<Token> tokens = scanner.scan(sourceCode);
+        Parser parser = new Parser(tokens);
+        List<Atom> atoms = parser.parse();
 
-        //print token stream
-        for (Token token : tokens) {
-            System.out.println(token);
+        //Print the intermediate-code atoms produced by the parser
+        for (Atom atom : atoms) {
+            System.out.println(atom);
         }
     }
 }
